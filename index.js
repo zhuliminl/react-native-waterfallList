@@ -7,6 +7,7 @@ const { width } = Dimensions.get('window')
 class Waterfall extends React.Component {
   static defaultProps = {
     numColumns: 2,
+    onEndReachedThreshold: 0.1,
     gap: 5,
     keyExtractor: (item, index) => {
       if (item.key != null) {
@@ -30,6 +31,25 @@ class Waterfall extends React.Component {
     this.state = {
       data,
     }
+  }
+
+  checkHasData = () => {
+    const { data = [] } = this.state
+    let hasData = false
+    data.forEach(columns => {
+      columns.forEach(item => {
+        if (item) {
+          hasData = true
+        }
+      })
+    })
+    return hasData
+  }
+
+  clearData = () => {
+    this.setState({
+      data: this.state.data.map(columns => ([]))
+    })
   }
 
   addMoreData = (items = []) => {
@@ -91,7 +111,6 @@ class Waterfall extends React.Component {
 
 
   _renderItem = ({ item, index }) => {
-    console.log('saul 8888', item, index)
     const { renderItem, gap } = this.props
     // return renderItem({ item, index })
     return (
@@ -104,12 +123,58 @@ class Waterfall extends React.Component {
   }
 
 
+  isCloseToBottom({ layoutMeasurement, contentOffset, contentSize }) {
+    console.log('saul layoutMeasrement.height & contentSize.height', layoutMeasurement.height, contentSize.height)
+
+    if(layoutMeasurement.height > contentSize.height) {
+      return false
+    }
+    const { onEndReachedThreshold = 0.1 } = this.props
+    const visibleLength = layoutMeasurement.height
+    return layoutMeasurement.height + contentOffset.y >= contentSize.height - onEndReachedThreshold * visibleLength
+  }
+
+  isLeaveToBottom({ layoutMeasurement, contentOffset, contentSize }) {
+    const { onEndReachedThreshold = 0.1 } = this.props
+    const visibleLength = layoutMeasurement.height
+    return layoutMeasurement.height + contentOffset.y < contentSize.height - onEndReachedThreshold * visibleLength
+  }
+
+  onEndReached = (e) => {
+    const { onEndReached } = this.props;
+    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent
+    const distanceFromEnd = contentSize.height - layoutMeasurement.height - contentOffset.y
+    onEndReached && onEndReached({ distanceFromEnd })
+  }
+
+  onScroll = (e) => {
+    const { onScroll } = this.props;
+    onScroll && onScroll(e)
+
+    if (this.isLeaveToBottom(e.nativeEvent)) {
+      console.log('saul 0000000')
+      this.hasReachedEnd = false
+    }
+
+    if (this.hasReachedEnd) {
+      return
+    }
+
+    if (this.isCloseToBottom(e.nativeEvent)) {
+      console.log('saul =====>>>>>>>> isCloseToBottom', e.nativeEvent)
+      this.hasReachedEnd = true
+      this.onEndReached(e)
+    }
+  }
+
+
 
   render() {
     const {
       ListEmptyComponent = () => null,
       ListHeaderComponent = () => null,
       ListFooterComponent = () => null,
+      style = {}
     } = this.props
 
     const emptyElement = React.isValidElement(ListEmptyComponent) ? (ListEmptyComponent) : (<ListEmptyComponent />)
@@ -119,18 +184,18 @@ class Waterfall extends React.Component {
 
     return (
       <ScrollView
-        style={[styles.container, {
-
-        }]}
+        style={[styles.container, { ...style }]}
         {...this.props}
+        onScroll={this.onScroll}
       >
-        {headerElement}
         {
-          !this.state.data.length && emptyElement
+          headerElement
+        }
+        {
+          !this.checkHasData() && emptyElement
         }
         <View
-          style={[styles.row, {
-          }]}
+          style={[styles.row, {}]}
         >
           {
             this.state.data.map((columnsData, columnIndex) => {
@@ -164,15 +229,10 @@ class Waterfall extends React.Component {
 
 const styles = StyleSheet.create({
   container: {
-    height: 500,
-    backgroundColor: 'blue',
   },
   row: {
     flexDirection: 'row',
   }
-
-
 })
 
 export default Waterfall
-
