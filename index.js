@@ -1,5 +1,10 @@
 import React from 'react'
 import { Dimensions, Image, View, StyleSheet, VirtualizedList, Text, ScrollView } from 'react-native'
+import * as Animatable from "react-native-animatable"
+
+const { createAnimatableComponent } = Animatable
+const AnimatableView = createAnimatableComponent(View)
+
 
 const { width } = Dimensions.get('window')
 
@@ -9,6 +14,7 @@ class Waterfall extends React.Component {
     numColumns: 2,
     onEndReachedThreshold: 0.1,
     gap: 5,
+    enableFadeIn: false,
     keyExtractor: (item, index) => {
       if (item.key != null) {
         return item.key
@@ -21,7 +27,6 @@ class Waterfall extends React.Component {
     },
 
   }
-
 
   constructor(props) {
     super(props)
@@ -70,6 +75,9 @@ class Waterfall extends React.Component {
       dataDimensions[readyColumnIndex].push({ height: item.height || 0 }) // 对当前分配的位置的下一次计算，进行补加
     })
 
+
+    this.preDataDimensions = this.state.data.map(columns => columns.map(item => ({ height: item.height || 0 })))
+
     // 位置分配结束
     this.setState({
       data: this.state.data.map((lastColumnData, columnIndex) => {
@@ -77,7 +85,7 @@ class Waterfall extends React.Component {
       })
     }, () => {
       const overTime = new Date().getTime()
-      console.log('saul 位置分配耗时', overTime - startTime)
+      console.log('位置分配耗时', overTime - startTime)
     })
   }
 
@@ -109,10 +117,40 @@ class Waterfall extends React.Component {
     return data.length || 0
   }
 
-
-  _renderItem = ({ item, index }) => {
+  _renderItem = ({ item, index, columnIndex }) => {
     const { renderItem, gap } = this.props
-    // return renderItem({ item, index })
+
+    if (this.props.enableFadeIn) {
+      const { preDataDimensions = [] } = this
+      const preColumns = preDataDimensions[columnIndex] || []
+      let _index = index
+      if (index > preColumns.length - 1) {
+        _index = index - (preColumns.length - 1)
+      }
+
+      return (
+        <AnimatableView
+          // animation={"fadeInUp"}
+          animation={{
+            from: {
+              opacity: 0.7,
+              translateY: 50,
+            },
+            to: {
+              opacity: 1,
+              translateY: 0,
+            },
+          }}
+          delay={200 * _index}
+          style={{
+            marginBottom: gap,
+          }}
+        >
+          {renderItem({ item, index })}
+        </AnimatableView>
+      )
+    }
+
     return (
       <View style={{
         marginBottom: gap,
@@ -124,9 +162,10 @@ class Waterfall extends React.Component {
 
 
   isCloseToBottom({ layoutMeasurement, contentOffset, contentSize }) {
-    console.log('saul layoutMeasrement.height & contentSize.height', layoutMeasurement.height, contentSize.height)
+    console.log('saul layoutMeasrement.height & contentSize.height', layoutMeasurement.height, contentSize.height, contentOffset.y)
 
-    if(layoutMeasurement.height > contentSize.height) {
+    // 解决顶部滑动误触发。内容高度必须大于容器高度。滑动距离必须有一定的距离
+    if (layoutMeasurement.height > contentSize.height || contentOffset.y <= 20) {
       return false
     }
     const { onEndReachedThreshold = 0.1 } = this.props
@@ -152,7 +191,6 @@ class Waterfall extends React.Component {
     onScroll && onScroll(e)
 
     if (this.isLeaveToBottom(e.nativeEvent)) {
-      console.log('saul 0000000')
       this.hasReachedEnd = false
     }
 
@@ -161,7 +199,6 @@ class Waterfall extends React.Component {
     }
 
     if (this.isCloseToBottom(e.nativeEvent)) {
-      console.log('saul =====>>>>>>>> isCloseToBottom', e.nativeEvent)
       this.hasReachedEnd = true
       this.onEndReached(e)
     }
@@ -212,7 +249,7 @@ class Waterfall extends React.Component {
                   getItem={(item, index) => this._getItem(item, index, columnIndex)}
                   getItemCount={this._getItemCount}
                   data={columnsData}
-                  renderItem={this._renderItem}
+                  renderItem={({ item, index }) => this._renderItem({ item, index, columnIndex })}
                 />
               )
             })
