@@ -83,7 +83,7 @@ class Home extends React.Component {
   }
 
   _keyExtractor = (item, index) => {
-    return index
+    return String(index)
   }
 
   refresh = () => {
