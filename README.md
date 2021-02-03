@@ -8,7 +8,7 @@ An enhanced, animated and customizable react-native-waterfall-list.
 The goal of `react-native-waterfall-list` is expandin ............
 
 <p align="center">
-<img src="/.github/images/example-modal.gif" height="500" />
+<img src="/gif/pr_ios.gif" height="500" />
 </p>
 
 ## Features
